@@ -5,21 +5,21 @@ require 'net/http'
 require 'open-uri'
 require 'uri'
 
-Clusters = Struct.new('Clusters', :clusters) do
+Clusters = Struct.new('Clusters', :clusters, :unclustered) do
     def cluster_pairs
         clusters.map { it.combination(2).to_a }.flatten(1)
     end
 
-    def ids
-        clusters.flatten
+    def all_ids
+        clusters.flatten + unclustered
     end
 
     def alma_ids
-        ids.select { |id| id.start_with? '99' }
+        all_ids.select { |id| id.start_with? '99' }
     end
 
     def scsb_ids
-        ids.select { |id| id.start_with? 'SCSB-' }
+        all_ids.select { |id| id.start_with? 'SCSB-' }
     end
 
     def cluster_for(id)
@@ -50,7 +50,8 @@ Clusters = Struct.new('Clusters', :clusters) do
     end
 
     def self.from_file(path)
-        new(JSON.parse(File.read(path), symbolize_names: true)[:clusters])
+        parsed = JSON.parse(File.read(path), symbolize_names: true)
+        new(parsed[:clusters], parsed[:unclustered])
     end
 
     def statistics(benchmark)
@@ -63,6 +64,7 @@ Clusters = Struct.new('Clusters', :clusters) do
         puts "Found #{ my_pairs.length * 1.0 / benchmark_pairs.length } of expected pairs"
         puts "Missed #{ (benchmark_pairs - my_pairs).length } expected pairs"
         puts "Found #{ (my_pairs - benchmark_pairs).length } incorrect pairs"
+        puts "#{(my_pairs - benchmark_pairs)}"
         puts
         puts "Sample pairs from your results: #{my_pairs.sample(2)}"
         puts "Sample pairs from benchmark: #{benchmark_pairs.sample(2)}"

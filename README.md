@@ -15,11 +15,17 @@ The format for duplicates is a "clusters" key pointing to an
 array containing 0 to many arrays.  Each
 inner array represents a cluster of duplicate records as their string IDs.
 
+We also have an "unclustered" key pointing to an array of string IDs that
+are not duplicates.
+
 ```json
 {
    "clusters": [
         ["9996192723506421", "SCSB-13600285", "SCSB-12806464", "SCSB-9153556"],
         ["9996061473506421", "SCSB-13548865", "SCSB-10956306", "SCSB-14380232"]
+    ],
+    "unclustered": [
+        "9912571763506421"
     ]
 }
 ```
