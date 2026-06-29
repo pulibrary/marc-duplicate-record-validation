@@ -7,7 +7,7 @@ require 'uri'
 
 Clusters = Struct.new('Clusters', :clusters, :unclustered) do
     def cluster_pairs
-        clusters.map { it.combination(2).to_a }.flatten(1)
+        clusters.map { it.combination(2).to_a }.flatten(1).map { it.sort }
     end
 
     def all_ids
@@ -29,11 +29,14 @@ Clusters = Struct.new('Clusters', :clusters, :unclustered) do
     def download(filename, alma_sru_endpoint: "https://princeton-psb.alma.exlibrisgroup.com/view/sru/01PRI_INST")
         writer = MARC::XMLWriter.new(filename)
 
-        cql_query = alma_ids.map { |id| "alma.mms_id=#{id}" }.join("%20or%20")
-        uri = URI("#{alma_sru_endpoint}/?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=#{cql_query}&maximumRecords=#{alma_ids.length}")
+        alma_ids.each_slice(10) do |slice|
+            cql_query = slice.map { |id| "alma.mms_id=#{id}" }.join("%20or%20")
+            uri = URI("#{alma_sru_endpoint}/?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=#{cql_query}&maximumRecords=#{alma_ids.length}")
 
-        MARC::XMLReader.new(uri.open, parser: :nokogiri).each do |record|
-            writer.write record
+            MARC::XMLReader.new(uri.open, parser: :nokogiri).each do |record|
+                writer.write record
+            end
+            sleep 2
         end
 
         scsb_ids.each do |id|
@@ -68,6 +71,8 @@ Clusters = Struct.new('Clusters', :clusters, :unclustered) do
         puts
         puts "Sample pairs from your results: #{my_pairs.sample(2)}"
         puts "Sample pairs from benchmark: #{benchmark_pairs.sample(2)}"
+        puts
+        puts "A few pairs you missed: #{(benchmark_pairs - my_pairs).sample(5)}"
     end
 end
 
