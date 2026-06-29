@@ -26,29 +26,29 @@ Clusters = Struct.new('Clusters', :clusters, :unclustered) do
         clusters.find { it.include? id }
     end
 
+    def fetch_with_retry(uri, attempts=5)
+        uri.open.read
+    rescue OpenURI::HTTPError
+        if attempts > 0
+            sleep 2
+            fetch_with_retry(uri, attempts-1)
+        else
+            nil
+        end
+    end
+
     def download(filename, alma_sru_endpoint: "https://princeton-psb.alma.exlibrisgroup.com/view/sru/01PRI_INST")
         writer = MARC::XMLWriter.new(filename)
 
-        alma_ids.each_slice(10) do |slice|
-            cql_query = slice.map { |id| "alma.mms_id=#{id}" }.join("%20or%20")
-            uri = URI("#{alma_sru_endpoint}/?version=1.2&operation=searchRetrieve&recordSchema=marcxml&query=#{cql_query}&maximumRecords=#{alma_ids.length}")
-
-            MARC::XMLReader.new(uri.open, parser: :nokogiri).each do |record|
-                writer.write record
-            end
-            sleep 2
-        end
-
-        scsb_ids.each do |id|
-            uri = URI("https://catalog.princeton.edu/catalog/#{id}/raw");
-            raw = Net::HTTP.get(uri)
-            json = JSON.parse(raw)
-            decoded = Base64.strict_decode64(json['marcxml'])
-            marcxml = Zlib::GzipReader.new(StringIO.new(decoded)).read
-            MARC::XMLReader.new(StringIO.new(marcxml), parser: :nokogiri).each do |record|
+        all_ids.each do |id|
+            uri = URI "https://catalog.princeton.edu/catalog/#{id}.marcxml"
+            xml = fetch_with_retry(uri)
+            next unless xml
+            MARC::XMLReader.new(StringIO.new(xml), parser: :nokogiri).each do |record|
                 writer.write record
             end
         end
+
         writer.close
     end
 
